@@ -7,20 +7,6 @@ import (
 	"testing"
 )
 
-func TestCloudflareClient(t *testing.T) {
-	t.Run("returns a cloudflare api struct", func(t *testing.T) {
-		c := Cloudflare()
-
-		if len(c.URL) < 1 {
-			t.Errorf("expected a URL, got nil")
-		}
-
-		if len(c.ContentType) < 1 {
-			t.Errorf("expected a URL, got nil")
-		}
-	})
-}
-
 func TestUpdateDNSRecord(t *testing.T) {
 	t.Run("updates a DNS record", func(t *testing.T) {
 		data := mockDNSRecordResponse()
@@ -28,7 +14,7 @@ func TestUpdateDNSRecord(t *testing.T) {
 		json.Unmarshal(data, &record)
 
 		srv := makeServer(http.StatusOK, data)
-		c := &CloudflareAPI{URL: srv.URL}
+		c := Cloudflare(srv.URL)
 
 		got := UpdateDNSRecord(c, &record)
 
@@ -38,13 +24,13 @@ func TestUpdateDNSRecord(t *testing.T) {
 	})
 }
 
-func TestCurrentDNSRecords(t *testing.T) {
+func TestListDNSRecords(t *testing.T) {
 	t.Run("gets the current DNS records", func(t *testing.T) {
 		data := mockDNSListResponse()
 		srv := makeServer(http.StatusOK, data)
 		dns := &CloudflareAPI{URL: srv.URL}
 
-		got := CurrentDNSRecords(dns)
+		got := ListDNSRecords(dns)
 
 		if string(got) != string(data) {
 			t.Errorf("got %q, want %q", got, data)

@@ -1,6 +1,9 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -56,11 +59,9 @@ type DNSListResponse struct {
 
 // CloudflareAPI struct for requests to Cloudflare
 type CloudflareAPI struct {
-	URL         string
-	ContentType string
-	Email       string
-	APIKey      string
-	client      *http.Client
+	URL      string
+	APIToken string
+	client   *http.Client
 }
 
 // IPAddress struct for requests to an IP address service
@@ -69,32 +70,17 @@ type IPAddress struct {
 }
 
 func main() {
-	// client := &IPAddress{URL: "ipv4.icanhazip.com"}
-	// resp := CurrentIP(client)
-	// ip := cleanIp(resp)
-	// fmt.Println(ip)
-	// req := Cloudflare()
-	// resp := CurrentDNSRecords(req)
-	// var records []DNSRecord
-	// json.Unmarshal(resp, &records)
-	// updated := make([]DNSRecord, 10)
-
-	// for _, record := range records {
-	// 	u := UpdateDNSRecord(req, &record)
-	// 	fmt.Println(string(u))
-	// append(updated, u)
-	// }
+	api := Cloudflare("https://api.cloudflare.com")
+	fmt.Println(api.URL)
 }
 
 // Cloudflare returns a CloudflareAPI struct
 // populated with the required data to build requests
-func Cloudflare() *CloudflareAPI {
+func Cloudflare(url string) *CloudflareAPI {
 	return &CloudflareAPI{
-		URL:         "https://api.cloudflare.com",
-		ContentType: "application/json",
-		Email:       "email@example.com",
-		APIKey:      "abcd1234",
-		client:      &http.Client{Timeout: time.Second * 10},
+		URL:      url,
+		APIToken: "abcd1234",
+		client:   &http.Client{Timeout: time.Second * 10},
 	}
 }
 
@@ -115,11 +101,11 @@ func cleanIP(body []byte) string {
 	return strings.Trim(str, "\n")
 }
 
-// CurrentDNSRecords retrieves a list of the current DNS records
-func CurrentDNSRecords(c *CloudflareAPI) []byte {
+// ListDNSRecords retrieves a list of the current DNS records
+func ListDNSRecords(c *CloudflareAPI) []byte {
 	resp, err := http.Get(c.URL)
 	if err != nil {
-		log.Println(err)
+		log.Fatal(err)
 	}
 
 	defer resp.Body.Close()
@@ -132,6 +118,34 @@ func CurrentDNSRecords(c *CloudflareAPI) []byte {
 
 // UpdateDNSRecord makes a request to the API to update a DNS record
 func UpdateDNSRecord(c *CloudflareAPI, d *DNSRecord) []byte {
-	// resp, err := http.Post(r.URL, record)
-	return nil
+	reqBody, err := json.Marshal(d)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	req := c.cloudflareRequest(reqBody)
+	resp, err := c.client.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer resp.Body.Close()
+	respBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return respBody
+}
+
+func (c *CloudflareAPI) cloudflareRequest(body []byte) *http.Request {
+	req, err := http.NewRequest(http.MethodPost, c.URL, bytes.NewBuffer(body))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+c.APIToken)
+
+	return req
 }
